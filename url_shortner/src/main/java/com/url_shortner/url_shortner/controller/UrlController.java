@@ -37,4 +37,9 @@ public class UrlController {
     public ResponseEntity<UrlResponse> getStats(@PathVariable String shortCode) {
         return ResponseEntity.ok(urlService.getStats(shortCode));
     }
+
+    @GetMapping("/favicon.ico")
+    public ResponseEntity<Void> favicon() {
+        return ResponseEntity.noContent().build();
+}
 }

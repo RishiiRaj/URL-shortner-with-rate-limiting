@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/urlshortener
+    url: jdbc:postgresql://localhost:5432/urlshortener?TimeZone=UTC
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
@@ -12,6 +12,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
 
   data:
     redis:

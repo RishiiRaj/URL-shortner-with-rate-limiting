@@ -8,6 +8,8 @@ services:
       POSTGRES_DB: urlshortener
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      PGTZ: Asia/Kolkata
+      TZ: Asia/Kolkata
     ports:
       - "5432:5432"
     volumes:
