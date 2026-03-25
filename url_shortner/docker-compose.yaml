@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: urlshortener-postgres
+    environment:
+      POSTGRES_DB: urlshortener
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:7
+    container_name: urlshortener-redis
+    ports:
+      - "6379:6379"
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: urlshortener-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: urlshortener-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+volumes:
+  postgres_data:
