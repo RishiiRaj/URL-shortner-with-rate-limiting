@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>URL Shortener</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3250;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --accent-dim: rgba(99, 102, 241, 0.15);
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --error: #f87171;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    header .logo {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #6366f1, #a78bfa, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p {
+      color: var(--muted);
+      margin-top: 0.4rem;
+      font-size: 0.95rem;
+    }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      width: 100%;
+      max-width: 600px;
+      margin-bottom: 1.25rem;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card h2 .icon {
+      font-size: 1.1rem;
+    }
+
+    /* Form elements */
+    .field { margin-bottom: 1rem; }
+    .field label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .field input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.9rem;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus { border-color: var(--accent); }
+    .field input::placeholder { color: var(--muted); }
+    .field .hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    /* Button */
+    button {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      margin-top: 0.25rem;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.secondary:hover { border-color: var(--accent); color: var(--accent-hover); }
+
+    /* Alert */
+    .alert {
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.88rem;
+      margin-top: 1rem;
+      display: none;
+    }
+    .alert.error   { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3); color: var(--error); }
+    .alert.success { background: rgba(74,222,128,0.10); border: 1px solid rgba(74,222,128,0.3);  color: var(--success); }
+    .alert.warning { background: rgba(251,191,36,0.10); border: 1px solid rgba(251,191,36,0.3);  color: var(--warning); }
+    .alert.visible { display: block; }
+
+    /* Result box */
+    #result-box { display: none; }
+    #result-box.visible { display: block; }
+
+    .result-url-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 0.9rem;
+      margin-bottom: 1rem;
+    }
+    .result-url-row a {
+      flex: 1;
+      color: var(--accent-hover);
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      word-break: break-all;
+    }
+    .result-url-row a:hover { text-decoration: underline; }
+    .copy-btn {
+      width: auto;
+      margin: 0;
+      padding: 0.4rem 0.9rem;
+      font-size: 0.8rem;
+      background: var(--accent-dim);
+      color: var(--accent-hover);
+      border: 1px solid var(--accent);
+      flex-shrink: 0;
+    }
+    .copy-btn:hover { background: var(--accent); color: #fff; }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.75rem;
+    }
+    .meta-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 0.8rem;
+    }
+    .meta-item .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--muted);
+      margin-bottom: 0.2rem;
+    }
+    .meta-item .value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    /* Stats section */
+    #stats-result { display: none; }
+    #stats-result.visible { display: block; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .stat-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.9rem;
+      text-align: center;
+    }
+    .stat-card .stat-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--accent-hover);
+    }
+    .stat-card .stat-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .stat-card .stat-text {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    /* Divider */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.25rem 0;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Footer */
+    footer {
+      margin-top: 2rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">&#9889; Snip.ly</div>
+  <p>Shorten long URLs instantly &mdash; track clicks, set expiry, and more.</p>
+</header>
+
+<!-- Shorten Card -->
+<div class="card">
+  <h2><span class="icon">&#128279;</span> Shorten a URL</h2>
+
+  <div class="field">
+    <label>Long URL <span style="color:var(--error)">*</span></label>
+    <input id="original-url" type="url" placeholder="https://example.com/very/long/url..." autocomplete="off" />
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label>User ID <span style="color:var(--muted);font-size:0.7rem">(optional)</span></label>
+      <input id="user-id" type="text" placeholder="e.g. rishi123" />
+    </div>
+    <div class="field">
+      <label>Expires in <span style="color:var(--muted);font-size:0.7rem">(days, optional)</span></label>
+      <input id="expiry-days" type="number" placeholder="e.g. 30" min="1" max="3650" />
+    </div>
+  </div>
+
+  <button id="shorten-btn" onclick="shortenUrl()">Shorten URL</button>
+
+  <div id="shorten-alert" class="alert"></div>
+
+  <!-- Result -->
+  <div id="result-box">
+    <hr class="divider" />
+    <div class="result-url-row">
+      <a id="result-short-url" href="#" target="_blank"></a>
+      <button class="copy-btn secondary" onclick="copyShortUrl()">Copy</button>
+    </div>
+    <div class="meta-grid">
+      <div class="meta-item">
+        <div class="label">Short Code</div>
+        <div class="value" id="result-short-code">—</div>
+      </div>
+      <div class="meta-item">
+        <div class="label">Clicks</div>
+        <div class="value" id="result-clicks">0</div>
+      </div>
+      <div class="meta-item">
+        <div class="label">Created</div>
+        <div class="value" id="result-created">—</div>
+      </div>
+      <div class="meta-item">
+        <div class="label">Expires</div>
+        <div class="value" id="result-expires">Never</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Card -->
+<div class="card">
+  <h2><span class="icon">&#128200;</span> URL Statistics</h2>
+
+  <div style="display:flex;gap:0.6rem;align-items:flex-end">
+    <div class="field" style="flex:1;margin:0">
+      <label>Short Code</label>
+      <input id="stats-code" type="text" placeholder="e.g. abc1234" maxlength="10" />
+    </div>
+    <button style="width:auto;margin:0;padding:0.65rem 1.2rem" onclick="fetchStats()">Lookup</button>
+  </div>
+
+  <div id="stats-alert" class="alert"></div>
+
+  <div id="stats-result">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-clicks">0</div>
+        <div class="stat-label">Total Clicks</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-text" id="stat-created">—</div>
+        <div class="stat-label">Created At</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-text" id="stat-expires">Never</div>
+        <div class="stat-label">Expires At</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-text" id="stat-user">—</div>
+        <div class="stat-label">User ID</div>
+      </div>
+    </div>
+    <div class="meta-item" style="margin-top:0.75rem">
+      <div class="label">Original URL</div>
+      <div class="value" style="font-size:0.8rem;color:var(--muted)" id="stat-original-url">—</div>
+    </div>
+  </div>
+</div>
+
+<footer>Rate limit: 10 requests / 60 seconds &nbsp;&bull;&nbsp; Powered by Spring Boot</footer>
+
+<script>
+  const API = '';
+
+  function formatDate(dt) {
+    if (!dt) return 'Never';
+    try {
+      return new Date(dt).toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch { return dt; }
+  }
+
+  function showAlert(id, type, msg) {
+    const el = document.getElementById(id);
+    el.className = 'alert ' + type + ' visible';
+    el.textContent = msg;
+  }
+
+  function hideAlert(id) {
+    const el = document.getElementById(id);
+    el.className = 'alert';
+    el.textContent = '';
+  }
+
+  async function shortenUrl() {
+    const urlInput  = document.getElementById('original-url');
+    const userInput = document.getElementById('user-id');
+    const expInput  = document.getElementById('expiry-days');
+    const btn       = document.getElementById('shorten-btn');
+
+    hideAlert('shorten-alert');
+    document.getElementById('result-box').classList.remove('visible');
+
+    const originalUrl = urlInput.value.trim();
+    if (!originalUrl) {
+      showAlert('shorten-alert', 'error', 'Please enter a URL.');
+      return;
+    }
+    if (!/^https?:\/\/.+/.test(originalUrl)) {
+      showAlert('shorten-alert', 'error', 'URL must start with http:// or https://');
+      return;
+    }
+
+    const body = { originalUrl };
+    if (userInput.value.trim()) body.userId = userInput.value.trim();
+    if (expInput.value)         body.expiryDays = parseInt(expInput.value, 10);
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Shortening…';
+
+    try {
+      const res = await fetch(API + '/api/shorten', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (res.status === 429) {
+        showAlert('shorten-alert', 'warning', 'Rate limit reached. You can make 10 requests per minute. Please wait and try again.');
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const msg = data?.message || data?.originalUrl || 'Something went wrong.';
+        showAlert('shorten-alert', 'error', msg);
+        return;
+      }
+
+      // Populate result
+      const shortUrlEl = document.getElementById('result-short-url');
+      shortUrlEl.textContent = data.shortUrl;
+      shortUrlEl.href = data.shortUrl;
+
+      document.getElementById('result-short-code').textContent = data.shortCode || '—';
+      document.getElementById('result-clicks').textContent = data.clickCount ?? 0;
+      document.getElementById('result-created').textContent = formatDate(data.createdAt);
+      document.getElementById('result-expires').textContent = formatDate(data.expiresAt);
+
+      document.getElementById('result-box').classList.add('visible');
+      showAlert('shorten-alert', 'success', 'URL shortened successfully!');
+
+    } catch (err) {
+      showAlert('shorten-alert', 'error', 'Could not reach the server. Make sure the app is running.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Shorten URL';
+    }
+  }
+
+  async function fetchStats() {
+    const code = document.getElementById('stats-code').value.trim();
+    hideAlert('stats-alert');
+    document.getElementById('stats-result').classList.remove('visible');
+
+    if (!code) {
+      showAlert('stats-alert', 'error', 'Please enter a short code.');
+      return;
+    }
+
+    try {
+      const res = await fetch(API + '/api/stats/' + encodeURIComponent(code));
+
+      if (res.status === 404) {
+        showAlert('stats-alert', 'error', 'Short code not found.');
+        return;
+      }
+      if (res.status === 429) {
+        showAlert('stats-alert', 'warning', 'Rate limit reached. Please wait a moment.');
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        showAlert('stats-alert', 'error', data?.message || 'Something went wrong.');
+        return;
+      }
+
+      document.getElementById('stat-clicks').textContent = data.clickCount ?? 0;
+      document.getElementById('stat-created').textContent = formatDate(data.createdAt);
+      document.getElementById('stat-expires').textContent = formatDate(data.expiresAt);
+      document.getElementById('stat-user').textContent = data.userId || 'N/A';
+      document.getElementById('stat-original-url').textContent = data.originalUrl;
+
+      document.getElementById('stats-result').classList.add('visible');
+
+    } catch (err) {
+      showAlert('stats-alert', 'error', 'Could not reach the server. Make sure the app is running.');
+    }
+  }
+
+  function copyShortUrl() {
+    const url = document.getElementById('result-short-url').textContent;
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 1800);
+    });
+  }
+
+  // Allow Enter key in stats input
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('stats-code').addEventListener('keydown', e => {
+      if (e.key === 'Enter') fetchStats();
+    });
+    document.getElementById('original-url').addEventListener('keydown', e => {
+      if (e.key === 'Enter') shortenUrl();
+    });
+  });
+</script>
+</body>
+</html>
