@@ -23,6 +23,7 @@ public class UrlService {
     private static final int MAX_RETRIES = 5;
 
     private final UrlRepository urlRepository;
+    private final CacheService cacheService;
 
     @Value("${app.base-url}")
     private String baseUrl;
@@ -47,24 +48,41 @@ public class UrlService {
                 .build();
 
         urlRepository.save(entity);
-        log.info("Shortened URL: {} -> {}", request.getOriginalUrl(), shortCode);
 
+        // cache immediately after saving so first redirect is fast
+        cacheService.cacheUrl(shortCode, request.getOriginalUrl());
+
+        log.info("Shortened URL: {} -> {}", request.getOriginalUrl(), shortCode);
         return toResponse(entity);
     }
 
-    // ─── Resolve a short code to original URL ────────────────────────────────
+    // ─── Resolve short code → original URL (cache-aside) ─────────────────────
 
     @Transactional
     public String resolveShortCode(String shortCode) {
+
+        // 1. check Redis first
+        String cachedUrl = cacheService.getCachedUrl(shortCode);
+        if (cachedUrl != null) {
+            // cache hit — increment click count asynchronously and return
+            urlRepository.incrementClickCount(shortCode);
+            return cachedUrl;
+        }
+
+        // 2. cache miss — go to PostgreSQL
         UrlEntity entity = urlRepository.findByShortCode(shortCode)
                 .orElseThrow(() -> new UrlNotFoundException("Short code not found: " + shortCode));
 
         if (isExpired(entity)) {
+            cacheService.evictUrl(shortCode);
             throw new UrlNotFoundException("Short URL has expired: " + shortCode);
         }
 
+        // 3. store in Redis for next time
+        cacheService.cacheUrl(shortCode, entity.getOriginalUrl());
+
         urlRepository.incrementClickCount(shortCode);
-        log.info("Resolved short code: {} -> {}", shortCode, entity.getOriginalUrl());
+        log.info("Resolved from DB: {} -> {}", shortCode, entity.getOriginalUrl());
 
         return entity.getOriginalUrl();
     }

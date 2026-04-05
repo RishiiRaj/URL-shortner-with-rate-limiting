@@ -23,8 +23,8 @@ public class UrlController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    // GET /{shortCode} → redirect
-    @GetMapping("/{shortCode}")
+    // GET /{shortCode} → redirect (exclude static file extensions)
+    @GetMapping("/{shortCode:^(?!.*\\.\\w+$)[a-zA-Z0-9]+$}")
     public ResponseEntity<Void> redirect(@PathVariable String shortCode) {
         String originalUrl = urlService.resolveShortCode(shortCode);
         HttpHeaders headers = new HttpHeaders();
