@@ -3,6 +3,7 @@ package com.url_shortner.url_shortner.service;
 import com.url_shortner.url_shortner.dto.UrlRequest;
 import com.url_shortner.url_shortner.dto.UrlResponse;
 import com.url_shortner.url_shortner.exception.UrlNotFoundException;
+import com.url_shortner.url_shortner.kafka.ClickEventProducer;
 import com.url_shortner.url_shortner.model.UrlEntity;
 import com.url_shortner.url_shortner.repository.UrlRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class UrlService {
 
     private final UrlRepository urlRepository;
     private final CacheService cacheService;
+    private final ClickEventProducer clickEventProducer;
 
     @Value("${app.base-url}")
     private String baseUrl;
@@ -64,8 +66,9 @@ public class UrlService {
         // 1. check Redis first
         String cachedUrl = cacheService.getCachedUrl(shortCode);
         if (cachedUrl != null) {
-            // cache hit — increment click count asynchronously and return
+            // cache hit — increment click count and fire async Kafka event
             urlRepository.incrementClickCount(shortCode);
+            clickEventProducer.publishClickEvent(shortCode, cachedUrl, null); // userId not in cache
             return cachedUrl;
         }
 
@@ -82,6 +85,7 @@ public class UrlService {
         cacheService.cacheUrl(shortCode, entity.getOriginalUrl());
 
         urlRepository.incrementClickCount(shortCode);
+        clickEventProducer.publishClickEvent(shortCode, entity.getOriginalUrl(), entity.getUserId());
         log.info("Resolved from DB: {} -> {}", shortCode, entity.getOriginalUrl());
 
         return entity.getOriginalUrl();
