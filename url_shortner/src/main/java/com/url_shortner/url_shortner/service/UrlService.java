@@ -6,19 +6,18 @@ import com.url_shortner.url_shortner.exception.UrlNotFoundException;
 import com.url_shortner.url_shortner.kafka.ClickEventProducer;
 import com.url_shortner.url_shortner.model.UrlEntity;
 import com.url_shortner.url_shortner.repository.UrlRepository;
-import lombok.RequiredArgsConstructor;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Random;
 import java.util.Optional;
+import java.util.Random;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class UrlService {
 
     private static final String BASE62 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -27,6 +26,7 @@ public class UrlService {
     private final UrlRepository urlRepository;
     private final CacheService cacheService;
     private final ClickEventProducer clickEventProducer;
+    private final MeterRegistry meterRegistry; // 🆕
 
     @Value("${app.base-url}")
     private String baseUrl;
@@ -34,19 +34,28 @@ public class UrlService {
     @Value("${app.short-code-length}")
     private int shortCodeLength;
 
+    public UrlService(UrlRepository urlRepository,
+            CacheService cacheService,
+            ClickEventProducer clickEventProducer,
+            MeterRegistry meterRegistry) { // 🆕
+        this.urlRepository = urlRepository;
+        this.cacheService = cacheService;
+        this.clickEventProducer = clickEventProducer;
+        this.meterRegistry = meterRegistry;
+    }
+
     // ─── Shorten a URL ───────────────────────────────────────────────────────
 
     @Transactional
     public UrlResponse shortenUrl(UrlRequest request) {
 
-        // ─── Deduplication check ──────────────────────────────────────────────
-        Optional<UrlEntity> existing = urlRepository.findByOriginalUrl(request.getOriginalUrl());
+        Optional<UrlEntity> existing = urlRepository.findFirstByOriginalUrl(request.getOriginalUrl());
         if (existing.isPresent()) {
             log.info("Duplicate URL detected, returning existing short code: {}", existing.get().getShortCode());
+            meterRegistry.counter("url.shorten.duplicate").increment(); // 🆕
             return toResponse(existing.get());
         }
 
-        // ─── New URL — generate short code and save ───────────────────────────
         String shortCode = generateUniqueShortCode();
 
         UrlEntity entity = UrlEntity.builder()
@@ -62,6 +71,7 @@ public class UrlService {
         urlRepository.save(entity);
         cacheService.cacheUrl(shortCode, request.getOriginalUrl());
 
+        meterRegistry.counter("url.shorten.count").increment(); // 🆕
         log.info("Shortened URL: {} -> {}", request.getOriginalUrl(), shortCode);
         return toResponse(entity);
     }
@@ -71,16 +81,16 @@ public class UrlService {
     @Transactional
     public String resolveShortCode(String shortCode) {
 
-        // 1. check Redis first
         String cachedUrl = cacheService.getCachedUrl(shortCode);
         if (cachedUrl != null) {
-            // cache hit — increment click count and fire async Kafka event
+            meterRegistry.counter("url.redirect.cache.hit").increment(); // 🆕
             urlRepository.incrementClickCount(shortCode);
-            clickEventProducer.publishClickEvent(shortCode, cachedUrl, null); // userId not in cache
+            clickEventProducer.publishClickEvent(shortCode, cachedUrl, null);
             return cachedUrl;
         }
 
-        // 2. cache miss — go to PostgreSQL
+        meterRegistry.counter("url.redirect.cache.miss").increment(); // 🆕
+
         UrlEntity entity = urlRepository.findByShortCode(shortCode)
                 .orElseThrow(() -> new UrlNotFoundException("Short code not found: " + shortCode));
 
@@ -89,9 +99,7 @@ public class UrlService {
             throw new UrlNotFoundException("Short URL has expired: " + shortCode);
         }
 
-        // 3. store in Redis for next time
         cacheService.cacheUrl(shortCode, entity.getOriginalUrl());
-
         urlRepository.incrementClickCount(shortCode);
         clickEventProducer.publishClickEvent(shortCode, entity.getOriginalUrl(), entity.getUserId());
         log.info("Resolved from DB: {} -> {}", shortCode, entity.getOriginalUrl());

@@ -6,6 +6,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
+import io.micrometer.core.instrument.MeterRegistry;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -57,8 +59,12 @@ public class RateLimiterService {
                         "return 1");
     }
 
-    public RateLimiterService(StringRedisTemplate stringRedisTemplate) {
+    private final MeterRegistry meterRegistry;
+
+    public RateLimiterService(StringRedisTemplate stringRedisTemplate,
+            MeterRegistry meterRegistry) {
         this.stringRedisTemplate = stringRedisTemplate;
+        this.meterRegistry = meterRegistry;
     }
 
     public boolean isAllowed(String key) {
@@ -81,6 +87,8 @@ public class RateLimiterService {
         if (allowed) {
             log.info("Request allowed for key={}", key);
         } else {
+            meterRegistry.counter("url.ratelimit.exceeded",
+                    "key", key).increment(); 
             log.warn("Rate limit exceeded for key={}", key);
         }
 

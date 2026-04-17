@@ -7,7 +7,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -24,17 +24,17 @@ spring:
     bootstrap-servers: localhost:9092
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer  # 🆕 changed
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer  
     consumer:
-      group-id: click-analytics-group                                                # 🆕 changed
+      group-id: click-analytics-group                                                
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer  # 🆕 changed
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer  
       properties:
         spring:
           json:
             trusted:
-              packages: "com.url_shortner.url_shortner.kafka"                        # 🆕 added
+              packages: "com.url_shortner.url_shortner.kafka"                        
 
 app:
   base-url: http://localhost:8080
@@ -46,10 +46,13 @@ app:
 
 kafka:
   topic:
-    click-events: click-events                                                       # 🆕 added
+    click-events: click-events
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics
+  endpoint:
+    metrics:
+      enabled: true                    
