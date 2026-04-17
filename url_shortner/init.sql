@@ -1,20 +1,31 @@
-CREATE TABLE IF NOT EXISTS urls (
-    id              BIGSERIAL PRIMARY KEY,
-    short_code      VARCHAR(10)  NOT NULL UNIQUE,
-    original_url    TEXT         NOT NULL,
-    user_id         VARCHAR(50),
-    click_count     BIGINT       DEFAULT 0,
-    created_at      TIMESTAMP    DEFAULT NOW(),
-    expires_at      TIMESTAMP
+create table if not exists urls (
+   id           bigserial primary key,
+   short_code   varchar(10) not null unique,
+   original_url text not null,
+   user_id      varchar(50),
+   click_count  bigint default 0,
+   created_at   timestamp default now(),
+   expires_at   timestamp
 );
 
-CREATE INDEX IF NOT EXISTS idx_short_code ON urls(short_code);
-CREATE INDEX IF NOT EXISTS idx_user_id ON urls(user_id);
+create index if not exists idx_short_code on
+   urls (
+      short_code
+   );
+create index if not exists idx_user_id on
+   urls (
+      user_id
+   );
 
-CREATE TABLE IF NOT EXISTS click_analytics (
-    id          BIGSERIAL PRIMARY KEY,
-    short_code  VARCHAR(20)  NOT NULL,
-    original_url TEXT        NOT NULL,
-    user_id     VARCHAR(100),
-    clicked_at  TIMESTAMP    NOT NULL
+create table if not exists click_analytics (
+   id           bigserial primary key,
+   short_code   varchar(20) not null,
+   original_url text not null,
+   user_id      varchar(100),
+   clicked_at   timestamp not null
 );
+
+create index if not exists idx_urls_original_url on
+   urls (
+      original_url
+   );

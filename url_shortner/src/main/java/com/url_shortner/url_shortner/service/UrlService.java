@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Random;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -37,6 +38,15 @@ public class UrlService {
 
     @Transactional
     public UrlResponse shortenUrl(UrlRequest request) {
+
+        // ─── Deduplication check ──────────────────────────────────────────────
+        Optional<UrlEntity> existing = urlRepository.findByOriginalUrl(request.getOriginalUrl());
+        if (existing.isPresent()) {
+            log.info("Duplicate URL detected, returning existing short code: {}", existing.get().getShortCode());
+            return toResponse(existing.get());
+        }
+
+        // ─── New URL — generate short code and save ───────────────────────────
         String shortCode = generateUniqueShortCode();
 
         UrlEntity entity = UrlEntity.builder()
@@ -50,8 +60,6 @@ public class UrlService {
                 .build();
 
         urlRepository.save(entity);
-
-        // cache immediately after saving so first redirect is fast
         cacheService.cacheUrl(shortCode, request.getOriginalUrl());
 
         log.info("Shortened URL: {} -> {}", request.getOriginalUrl(), shortCode);
